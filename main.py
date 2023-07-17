@@ -2,10 +2,10 @@ import numpy as np
 
 
 class Flow:
-    def __init__(self, arrivalTime, size, source, dest):
+    def __init__(self, arrivalTime, size, src, dest):
         self.arrivalTime = arrivalTime
         self.size = size
-        self.source = source
+        self.src = src
         self.dest = dest
         self.pdt = None
         self.completionTime = None
@@ -44,8 +44,8 @@ def calcMinInc(unsat_links):
 def handleArr():
     size = generateJobSize()
     # how do we decide what the src and dest are? Are we generating the pairs randomly?
-    global tracker, unsatFlows, satFlows, path1, path2, path3, path4, link1, link2, link3, link4, departures
-    flow = Flow(arrivalTime = clock, size = size, source = None, dest = None)
+    global tracker, unsatFlows, satFlows, path1, path2, path3, path4, link1, link2, link3, link4, departures, lastEvent, departingJob, nextArrTime, nextDepTime
+    flow = Flow(arrivalTime = clock, size = size, src = None, dest = None)
 
     if tracker == 5:
         tracker = 1
@@ -88,9 +88,20 @@ def handleArr():
 
 
 def handleDep():
-    global tracker, unsatFlows, satFlows, path1, path2, path3, path4, link1, link2, link3, link4, departures
+    global tracker, unsatFlows, satFlows, path1, path2, path3, path4, link1, link2, link3, link4, departures, satLinks, lastEvent, departingJob, nextArrTime, nextDepTime
 
     departures += 1
+    departingJob.completionTime = clock - departingJob.arrivalTime
+    if departures == maxDepartures:
+        completionTimes.append(departingJob.completionTime)
+    unsatFlows.remove(departingJob)
+    if len(satLinks) != 0:
+        for x in unsatFlows:
+            x.rpt = x.rpt - (x.pdt - clock) * x.rate
+        calcMinInc(unsatFlows)
+        lastEvent = clock
+        departingJob = min(unsatFlows, key=lambda x: x.pdt)
+
 
 seed = 0
 maxDepartures = 200000
@@ -112,6 +123,9 @@ for i in range(runs):
     path2 = []
     path3 = []
     path4 = []
+    # start the first job off in the correct order for round robin
+
+    tracker = 1
     departingJob = None
     rate = None
     departures = 0
