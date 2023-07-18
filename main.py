@@ -11,10 +11,10 @@ class Flow:
         self.size = size
         self.src = src
         self.dest = dest
-        self.pdt = None
-        self.completionTime = None
         self.rate = rate
         self.rpt = rpt
+        self.pdt = None
+        self.completionTime = None
 
 
 # create link class to keep track of link capacity
@@ -33,7 +33,8 @@ def generateJobSize():
 def generateInterarrivalTime():
     return np.random.exponential(10 / 8)
 
-
+# function that runs the MmF algorithm on the list of unsatLinks (links that are currently being serviced)
+# function updates link and flow attributes to accurately represent the state of the system in any given point of time
 def maxMinFair(listOfLinks):
     global unsatLinks, unsatFlows, min_inc, temp, temp2
     # find the min inc for all the flows
@@ -41,7 +42,7 @@ def maxMinFair(listOfLinks):
         for x in i.fol:
             if x in unsatFlows:
                 temp.append(x)
-        var = (i.cap / len(temp))
+        var = (i.cap / len(temp)) if len(temp) > 0 else 0
         temp2.append(var)
     min_inc = min(temp2)
     print("this is the min inc " +  str(min_inc))
@@ -70,7 +71,7 @@ def maxMinFair(listOfLinks):
     arrSize2 = len(unsatFlows)
     b = 0
     while b < arrSize2:
-        if (unsatFlows[b].dest in satLinks) or (unsatLinks[a].src in satLinks):
+        if (unsatFlows[b].dest in satLinks) or (unsatFlows[b].src in satLinks):
             satFlows.append(unsatFlows[b])
             del unsatFlows[b]
             arrSize2 -= 1
@@ -138,6 +139,8 @@ def handleDep():
     departures += 1
     # set completion time of departing job
     departingJob.completionTime = clock - departingJob.arrivalTime
+
+    print("this is the departing job: " + str(departingJob))
     # if we are on the last job of the run, append to corr list
     if departures == maxDepartures:
         completionTimes.append(departingJob.completionTime)
@@ -158,6 +161,10 @@ def handleDep():
         lastEvent = clock
 
 
+
+
+
+
 seed = 0
 maxDepartures = 10
 completionTimes = []
@@ -173,21 +180,24 @@ for i in range(runs):
     temp2 = []
     satFlows = []
     satLinks = []
-    # will hold all the current jobs being served
     unsatFlows = []
+
     # declare all of the different path lists
     path1 = []
     path2 = []
     path3 = []
     path4 = []
 
+    # initialize the links and their capacities + empty list to hold all the flows on the link
     link1 = Link(1, [])
     link2 = Link(1, [])
     link3 = Link(1, [])
     link4 = Link(1, [])
+    # create the beginning list of all the links in the unsatLinks list
     unsatLinks = [link1, link2, link3, link4]
     # start the first job off in the correct order for round robin
 
+    # tracker used to keep track of roundrobin order
     tracker = 1
     departingJob = None
     rate = None
@@ -197,6 +207,9 @@ for i in range(runs):
     print("********************* This is run: " + str(count) + " *****************************" + "\n")
 
     while departures <= maxDepartures:
+        print("this is the list of unsat links: " + str(unsatLinks))
+        print("this is the list of unsat flows: " + str(unsatFlows))
+        print("\n")
         if nextArrTime <= nextDepTime:
             clock = nextArrTime
             handleArr()
