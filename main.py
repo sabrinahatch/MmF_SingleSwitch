@@ -1,16 +1,20 @@
-import numpy as np
+# Sabrina Hatch
+# CMU REUSE SNAP Lab
+# Summer 2023
 
+import numpy as np
 
 # create flow class
 class Flow:
-    def __init__(self, arrivalTime, size, src, dest, rate):
+    def __init__(self, arrivalTime, size, src, dest, rate, rpt):
         self.arrivalTime = arrivalTime
         self.size = size
         self.src = src
         self.dest = dest
         self.pdt = None
         self.completionTime = None
-        self.rate = None
+        self.rate = rate
+        self.rpt = rpt
 
 
 # create link class to keep track of link capacity
@@ -30,22 +34,50 @@ def generateInterarrivalTime():
     return np.random.exponential(10 / 8)
 
 
-def calcMinInc():
-    global unsatLinks, unsatFlows, min_inc
-    counter = 0
+def maxMinFair(listOfLinks):
+    global unsatLinks, unsatFlows, min_inc, temp, temp2
     # find the min inc for all the flows
-    print(unsatLinks)
     for i in unsatLinks:
         for x in i.fol:
             if x in unsatFlows:
-                counter += 1
-        temp.append(i.cap / counter)
-    min_inc = min(temp)
+                temp.append(x)
+        var = (i.cap / len(temp))
+        temp2.append(var)
+    min_inc = min(temp2)
+    print("this is the min inc " +  str(min_inc))
     # now update each flows' rate & pdt
     for x in unsatFlows:
         # update each flow's rate and new departure time
         x.rate = x.rate + min_inc
         x.pdt = clock + (x.rpt / x.rate)
+    # calculates the capacity of the links and updates their attributes
+    for x in unsatLinks:
+        x.cap = 1 - sum([i.rate for i in x.fol])
+
+    # iterate over lists of sat links/flows and unsat links/flows and update them accordingly based on the new water
+    # filling algo application
+
+    arrSize1 = len(unsatLinks)
+    a = 0
+    while a < arrSize1:
+        if unsatLinks[a].cap == 0:
+            satLinks.append(unsatLinks[a])
+            del unsatLinks[a]
+            arrSize1 -= 1
+        else:
+            a += 1
+
+    arrSize2 = len(unsatFlows)
+    b = 0
+    while b < arrSize2:
+        if (unsatFlows[b].dest in satLinks) or (unsatLinks[a].src in satLinks):
+            satFlows.append(unsatFlows[b])
+            del unsatFlows[b]
+            arrSize2 -= 1
+        else:
+            b += 1
+
+
 
 
 def handleArr():
@@ -54,7 +86,7 @@ def handleArr():
 
     # create new flow object for new arrival
     size = generateJobSize()
-    flow = Flow(arrivalTime=clock, size=size, src=None, dest=None)
+    flow = Flow(arrivalTime=clock, size=size, src=None, dest=None, rate = 0, rpt = size)
 
     # implement roundrobin system to assign flows to different paths
     # if we reach 5, we need to restart the counter
@@ -89,7 +121,7 @@ def handleArr():
     # append the new flow to the list of unsat flows
     unsatFlows.append(flow)
     # calculate the new minInc for the updated list of flows
-    calcMinInc(unsatLinks)
+    maxMinFair(unsatLinks)
     # update new lastEvent
     lastEvent = clock
     # assign the next departing job based on the pdt
@@ -116,7 +148,7 @@ def handleDep():
     if len(unsatLinks) != 0:
         for x in unsatFlows:
             x.rpt = x.rpt - (x.pdt - clock) * x.rate
-        calcMinInc(unsatLinks)
+        maxMinFair(unsatLinks)
 
         lastEvent = clock
         departingJob = min(unsatFlows, key=lambda x: x.pdt)
@@ -127,10 +159,10 @@ def handleDep():
 
 
 seed = 0
-maxDepartures = 200000
+maxDepartures = 10
 completionTimes = []
 count = 0
-runs = 5000
+runs = 5
 for i in range(runs):
     count += 1
     np.random.seed(seed)
@@ -138,6 +170,7 @@ for i in range(runs):
     nextArrTime = generateInterarrivalTime()
     jobSizes = []
     temp = []
+    temp2 = []
     satFlows = []
     satLinks = []
     # will hold all the current jobs being served
