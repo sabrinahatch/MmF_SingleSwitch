@@ -1,18 +1,22 @@
 import numpy as np
 
 
+# create flow class
 class Flow:
-    def __init__(self, arrivalTime, size, src, dest):
+    def __init__(self, arrivalTime, size, src, dest, rate):
         self.arrivalTime = arrivalTime
         self.size = size
         self.src = src
         self.dest = dest
         self.pdt = None
         self.completionTime = None
+        self.rate = None
 
+
+# create link class to keep track of link capacity
 class Link:
-    def __init__(self, capacity, fol):
-        self.capacity = capacity
+    def __init__(self, cap, fol):
+        self.cap = cap
         self.fol = fol
 
 
@@ -20,33 +24,40 @@ class Link:
 def generateJobSize():
     return np.random.exponential(1)
 
+
 # Function that generates an interarrival time
 def generateInterarrivalTime():
     return np.random.exponential(10 / 8)
 
-def calcMinInc(unsat_links):
+
+def calcMinInc():
+    global unsatLinks, unsatFlows, min_inc
     counter = 0
-    for i in unsat_links:
+    # find the min inc for all the flows
+    print(unsatLinks)
+    for i in unsatLinks:
         for x in i.fol:
             if x in unsatFlows:
                 counter += 1
-        temp.append(i.cap/counter)
+        temp.append(i.cap / counter)
     min_inc = min(temp)
-
+    # now update each flows' rate & pdt
     for x in unsatFlows:
         # update each flow's rate and new departure time
         x.rate = x.rate + min_inc
         x.pdt = clock + (x.rpt / x.rate)
 
 
-
-
 def handleArr():
-    size = generateJobSize()
-    # how do we decide what the src and dest are? Are we generating the pairs randomly?
+    # declare all global variables
     global tracker, unsatFlows, satFlows, path1, path2, path3, path4, link1, link2, link3, link4, departures, lastEvent, departingJob, nextArrTime, nextDepTime
-    flow = Flow(arrivalTime = clock, size = size, src = None, dest = None)
 
+    # create new flow object for new arrival
+    size = generateJobSize()
+    flow = Flow(arrivalTime=clock, size=size, src=None, dest=None)
+
+    # implement roundrobin system to assign flows to different paths
+    # if we reach 5, we need to restart the counter
     if tracker == 5:
         tracker = 1
     if tracker == 1:
@@ -73,34 +84,46 @@ def handleArr():
         flow.dest = link3
         link2.fol.append(flow)
         link3.fol.append(flow)
+    # incremement the track to keep roundrobin
     tracker += 1
+    # append the new flow to the list of unsat flows
     unsatFlows.append(flow)
-    calcMinInc(unsatFlows)
+    # calculate the new minInc for the updated list of flows
+    calcMinInc(unsatLinks)
+    # update new lastEvent
     lastEvent = clock
+    # assign the next departing job based on the pdt
     departingJob = min(unsatFlows, key=lambda x: x.pdt)
 
     # set the next departure and arrival
-    nextArrTime =  clock + generateInterarrivalTime()
+    nextArrTime = clock + generateInterarrivalTime()
     nextDepTime = departingJob.pdt
-
-
-
 
 
 def handleDep():
     global tracker, unsatFlows, satFlows, path1, path2, path3, path4, link1, link2, link3, link4, departures, satLinks, lastEvent, departingJob, nextArrTime, nextDepTime
-
+    # inc the dep counter
     departures += 1
+    # set completion time of departing job
     departingJob.completionTime = clock - departingJob.arrivalTime
+    # if we are on the last job of the run, append to corr list
     if departures == maxDepartures:
         completionTimes.append(departingJob.completionTime)
+    # remove the job from the list of unsatFlows (flows being serviced)
     unsatFlows.remove(departingJob)
-    if len(satLinks) != 0:
+    # if there are still link that are unsaturated, we need to update their jobs' rpts now that
+    # a flow has just left the system
+    if len(unsatLinks) != 0:
         for x in unsatFlows:
             x.rpt = x.rpt - (x.pdt - clock) * x.rate
-        calcMinInc(unsatFlows)
+        calcMinInc(unsatLinks)
+
         lastEvent = clock
         departingJob = min(unsatFlows, key=lambda x: x.pdt)
+    else:
+        departingJob = None
+        nextDepTime = float("inf")
+        lastEvent = clock
 
 
 seed = 0
@@ -116,6 +139,7 @@ for i in range(runs):
     jobSizes = []
     temp = []
     satFlows = []
+    satLinks = []
     # will hold all the current jobs being served
     unsatFlows = []
     # declare all of the different path lists
@@ -123,6 +147,12 @@ for i in range(runs):
     path2 = []
     path3 = []
     path4 = []
+
+    link1 = Link(1, [])
+    link2 = Link(1, [])
+    link3 = Link(1, [])
+    link4 = Link(1, [])
+    unsatLinks = [link1, link2, link3, link4]
     # start the first job off in the correct order for round robin
 
     tracker = 1
