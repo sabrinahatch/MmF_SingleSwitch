@@ -2,6 +2,10 @@
 # CMU REUSE SNAP Lab
 # Summer 2023
 
+# need to be general enough to be able to enter the number of ports there are in the system
+# how would I do this for SRPT and try to optimize so that it's an easier transition
+# compare to big switch model with no scheduling
+
 import numpy as np
 
 # create flow class
@@ -24,14 +28,31 @@ class Link:
         self.fol = fol
 
 
-# Function to generate job sizes
+# fcn to generate job sizes
 def generateJobSize():
     return np.random.exponential(1)
 
-
-# Function that generates an interarrival time
+# fcn that generates an interarrival time
 def generateInterarrivalTime():
     return np.random.exponential(10 / 8)
+
+# fcn to generate all the lists for different possible paths a flow could have
+def initializePaths(k, prefix="list_"):
+    pathDict = {}
+    for i in range(1, k + 1):
+        pathName = f"{prefix}{i}"
+        pathDict[pathName] = []
+    return pathDict
+
+# fcn to generate all the link objects in the system
+def initializeLinks(k):
+    links = []
+    for port in range(1, k + 1):
+        capacity = 0  # You can set the capacity to any default value
+        fol = []  # You can initialize the list as empty
+        link = Link(cap= 1, fol= [])
+        links.append(link)
+    return links
 
 # function that runs the MmF algorithm on the list of unsatLinks (links that are currently being serviced)
 # function updates link and flow attributes to accurately represent the state of the system in any given point of time
@@ -54,7 +75,6 @@ def maxMinFair(listOfLinks):
     # calculates the capacity of the links and updates their attributes
     for x in unsatLinks:
         x.cap = 1 - sum([i.rate for i in x.fol])
-
     # iterate over lists of sat links/flows and unsat links/flows and update them accordingly based on the new water
     # filling algo application
 
@@ -78,9 +98,7 @@ def maxMinFair(listOfLinks):
         else:
             b += 1
 
-
-
-
+# fcn to handle an arrival event
 def handleArr():
     # declare all global variables
     global tracker, unsatFlows, satFlows, path1, path2, path3, path4, link1, link2, link3, link4, departures, lastEvent, departingJob, nextArrTime, nextDepTime
@@ -132,7 +150,7 @@ def handleArr():
     nextArrTime = clock + generateInterarrivalTime()
     nextDepTime = departingJob.pdt
 
-
+# fcn to handle a departure event
 def handleDep():
     global tracker, unsatFlows, satFlows, path1, path2, path3, path4, link1, link2, link3, link4, departures, satLinks, lastEvent, departingJob, nextArrTime, nextDepTime
     # inc the dep counter
@@ -161,15 +179,14 @@ def handleDep():
         lastEvent = clock
 
 
-
-
-
-
+# sim logic
 seed = 0
 maxDepartures = 10
 completionTimes = []
-count = 0
 runs = 5
+# input number of ports that you want
+numPorts = 4
+count = 0
 for i in range(runs):
     count += 1
     np.random.seed(seed)
@@ -182,23 +199,12 @@ for i in range(runs):
     satLinks = []
     unsatFlows = []
 
-    # declare all of the different path lists
-    path1 = []
-    path2 = []
-    path3 = []
-    path4 = []
-
+    # creates dictionary of paths
+    pathList = initializePaths((numPorts * numPorts), prefix = "path")
     # initialize the links and their capacities + empty list to hold all the flows on the link
-    link1 = Link(1, [])
-    link2 = Link(1, [])
-    link3 = Link(1, [])
-    link4 = Link(1, [])
     # create the beginning list of all the links in the unsatLinks list
-    unsatLinks = [link1, link2, link3, link4]
+    unsatLinks = initializeLinks(numPorts)
     # start the first job off in the correct order for round robin
-
-    # tracker used to keep track of roundrobin order
-    tracker = 1
     departingJob = None
     rate = None
     departures = 0
@@ -207,9 +213,9 @@ for i in range(runs):
     print("********************* This is run: " + str(count) + " *****************************" + "\n")
 
     while departures <= maxDepartures:
-        print("this is the list of unsat links: " + str(unsatLinks))
-        print("this is the list of unsat flows: " + str(unsatFlows))
-        print("\n")
+        # print("this is the list of unsat links: " + str(unsatLinks))
+        # print("this is the list of unsat flows: " + str(unsatFlows))
+        # print("\n")
         if nextArrTime <= nextDepTime:
             clock = nextArrTime
             handleArr()
