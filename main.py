@@ -30,6 +30,8 @@ class Path:
         self.name = name
         self.matching = matching
         self.serviceList = serviceList
+        self.nextPathArrival = None
+        self.nextPathDeparture = None
 
 
 
@@ -192,6 +194,9 @@ for i in range(runs):
     satFlows = []
     satLinks = []
     unsatFlows = []
+    allArrivals = []
+    allDepartures = []
+
 
     # Generate links and matchings
     matchings = makeMatchings(links = initializeLinks(numPorts))
@@ -209,15 +214,27 @@ for i in range(runs):
     # start the first job off in the correct order for round robin
     departingJob = None
     rate = None
+
+    # add new arrival times for each path list to create pending jobs
+    # add to total list as well to filter out when next job will occur
+    for x in paths:
+        x.nextPathArrival = generateInterarrivalTime()
+        allArrivals.append(x.nextPathArrival)
+        print(x.nextPathArrival)
+    print("this is the list of all arrivals: " + str(allArrivals))
+
+
+    # determine the next arrival
+    nextArrTime = min(allArrivals)
+    print("this is the next arrival event: " + str(nextArrTime))
+    # set first departure time to be inf
+    nextDepTime = float("inf")
     departures = 0
     clock = 0.0
     lastEvent = clock
     print("********************* This is run: " + str(count) + " *****************************" + "\n")
 
     while departures <= maxDepartures:
-        # print("this is the list of unsat links: " + str(unsatLinks))
-        # print("this is the list of unsat flows: " + str(unsatFlows))
-        # print("\n")
         if nextArrTime <= nextDepTime:
             clock = nextArrTime
             handleArr()
