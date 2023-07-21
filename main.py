@@ -2,9 +2,7 @@
 # CMU REUSE SNAP Lab
 # Summer 2023
 
-# need to be general enough to be able to enter the number of ports there are in the system
 # how would I do this for SRPT and try to optimize so that it's an easier transition
-# compare to big switch model with no scheduling
 
 import numpy as np
 
@@ -20,12 +18,20 @@ class Flow:
         self.pdt = None
         self.completionTime = None
 
-
-# create link class to keep track of link capacity
 class Link:
-    def __init__(self, cap, fol):
+    def __init__(self, cap, name, fol, type):
         self.cap = cap
+        self.name = name
         self.fol = fol
+        self.type = type
+
+class Path:
+    def __init__(self, name, matching, serviceList):
+        self.name = name
+        self.matching = matching
+        self.serviceList = serviceList
+
+
 
 
 # fcn to generate job sizes
@@ -36,24 +42,39 @@ def generateJobSize():
 def generateInterarrivalTime():
     return np.random.exponential(10 / 8)
 
-# fcn to generate all the lists for different possible paths a flow could have
-def initializePaths(k, prefix="list_"):
-    pathDict = {}
-    for i in range(1, k + 1):
-        pathName = f"{prefix}{i}"
-        pathDict[pathName] = []
-    return pathDict
 
 # fcn to generate all the link objects in the system
 def initializeLinks(k):
+    if k % 2 != 0:
+        raise ValueError("k must be an even number.")
+
     links = []
-    for port in range(1, k + 1):
-        capacity = 0  # You can set the capacity to any default value
-        fol = []  # You can initialize the list as empty
-        link = Link(cap= 1, fol= [])
-        links.append(link)
+    half_k = k // 2
+
+    # split the ports into source and destination categories
+    for port in range(1, half_k + 1):
+        src_name = "src" + str(port)
+        dest_name = "dest" + str(port)
+        src_link = Link(name=src_name, cap=1, fol=[], type="src")
+        dest_link = Link(name=dest_name, cap=1, fol=[], type="dest")
+        links.extend([src_link, dest_link])
     return links
 
+
+def makeMatchings(links):
+    src_links = [link for link in links if link.type == "src"]
+    dest_links = [link for link in links if link.type == "dest"]
+
+    if len(src_links) != len(dest_links):
+        raise ValueError("Number of source links must be equal to the number of destination links.")
+
+    matchings = []
+    for src_link in src_links:
+        for dest_link in dest_links:
+            matching = (src_link, dest_link)
+            matchings.append(matching)
+
+    return matchings
 # function that runs the MmF algorithm on the list of unsatLinks (links that are currently being serviced)
 # function updates link and flow attributes to accurately represent the state of the system in any given point of time
 def maxMinFair(listOfLinks):
@@ -101,42 +122,14 @@ def maxMinFair(listOfLinks):
 # fcn to handle an arrival event
 def handleArr():
     # declare all global variables
-    global tracker, unsatFlows, satFlows, path1, path2, path3, path4, link1, link2, link3, link4, departures, lastEvent, departingJob, nextArrTime, nextDepTime
+    global unsatFlows, satFlows, path1, path2, path3, path4, link1, link2, link3, link4, departures, lastEvent, departingJob, nextArrTime, nextDepTime
 
     # create new flow object for new arrival
     size = generateJobSize()
     flow = Flow(arrivalTime=clock, size=size, src=None, dest=None, rate = 0, rpt = size)
 
     # implement roundrobin system to assign flows to different paths
-    # if we reach 5, we need to restart the counter
-    if tracker == 5:
-        tracker = 1
-    if tracker == 1:
-        path1.append(flow)
-        flow.src = link1
-        flow.dest = link3
-        link1.fol.append(flow)
-        link3.fol.append(flow)
-    elif tracker == 2:
-        path2.append(flow)
-        flow.src = link2
-        flow.dest = link4
-        link2.fol.append(flow)
-        link4.fol.append(flow)
-    elif tracker == 3:
-        path3.append(flow)
-        flow.src = link1
-        flow.dest = link4
-        link1.fol.append(flow)
-        link4.fol.append(flow)
-    elif tracker == 4:
-        path4.append(flow)
-        flow.src = link2
-        flow.dest = link3
-        link2.fol.append(flow)
-        link3.fol.append(flow)
-    # incremement the track to keep roundrobin
-    tracker += 1
+
     # append the new flow to the list of unsat flows
     unsatFlows.append(flow)
     # calculate the new minInc for the updated list of flows
@@ -179,6 +172,7 @@ def handleDep():
         lastEvent = clock
 
 
+
 # sim logic
 seed = 0
 maxDepartures = 10
@@ -199,11 +193,19 @@ for i in range(runs):
     satLinks = []
     unsatFlows = []
 
-    # creates dictionary of paths
-    pathList = initializePaths((numPorts * numPorts), prefix = "path")
-    # initialize the links and their capacities + empty list to hold all the flows on the link
-    # create the beginning list of all the links in the unsatLinks list
-    unsatLinks = initializeLinks(numPorts)
+    # Generate links and matchings
+    matchings = makeMatchings(links = initializeLinks(numPorts))
+
+    # Create a path object for each matching
+    paths = []
+    for index, matching in enumerate(matchings):
+        src_link, dest_link = matching
+        name = f"Path_{index + 1}"  # You can use any naming convention here
+        serviceList = []  # Add flows that belong to this path here
+        path = Path(name=name, matching=matching, serviceList=serviceList)
+        paths.append(path)
+
+
     # start the first job off in the correct order for round robin
     departingJob = None
     rate = None
